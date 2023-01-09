@@ -1,10 +1,21 @@
 package com.example;
 
+import cn.hutool.core.util.HashUtil;
+import cn.hutool.crypto.SecureUtil;
+import cn.hutool.crypto.symmetric.SymmetricAlgorithm;
+import cn.hutool.crypto.symmetric.SymmetricCrypto;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
+import cn.hutool.*;
+import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
+import net.lingala.zip4j.model.ZipParameters;
+import net.lingala.zip4j.model.enums.AesKeyStrength;
+import net.lingala.zip4j.model.enums.EncryptionMethod;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -28,7 +39,7 @@ public class Main {
 	private static String excelName = "";
 
 	private static List<List<String>> head = new ArrayList<>();
-	private static String[] heads = {"原父目录", "父目录", "原完整路径", "路径", "文件名", "原文件名"};
+	private static String[] heads = {"原父目录", "父目录", "原完整路径", "路径", "文件名", "原文件名", "AESkey", "密码"};
 
 	private static List<ExcelEntity> dataList = new ArrayList<>();
 
@@ -106,8 +117,42 @@ public class Main {
 	 * @param files
 	 * @return
 	 */
-	public static Map<String, Object> zip(String parent, List<File> files) {
+	public static Map<String, Object> zip(String parent, List<File> files)  {
+		//1.压缩工具类build
+		ZipParameters zipParameters = new ZipParameters();
+		zipParameters.setEncryptFiles(true);
+		zipParameters.setEncryptionMethod(EncryptionMethod.AES);
+		zipParameters.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
+		if (!zipPath.endsWith("/")) {
+			zipPath = zipPath.replace("\\", "/");
+			zipPath += "/";
+		}
 
+		//1.加密parent
+		//随机生成密钥
+		byte[] key = SecureUtil.generateKey(SymmetricAlgorithm.AES.getValue()).getEncoded();
+		SymmetricCrypto aes = new SymmetricCrypto(SymmetricAlgorithm.AES, key);
+		String hashParent = aes.encryptHex(parent);
+		ZipFile zipFile = new ZipFile(zipPath + parent + "/" + hashParent + ".zip", password.toCharArray());
+		try {
+			for (File file : files) {
+				String filePath = file.getPath();
+				String hashPath = aes.encryptHex(filePath);
+
+				zipFile.addFile(file, zipParameters);
+
+				writeXsl(parent, hashParent, "", hashParent, hashPath, filePath, Arrays.toString(key));
+			}
+		} catch (ZipException e) {
+			throw new RuntimeException(e);
+		}finally {
+			try {
+				zipFile.close();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+			System.gc();
+		}
 		return null;
 	}
 
@@ -121,7 +166,7 @@ public class Main {
 	 */
 	public static void writeXsl(String parent, String hashParent,
 								String originalZipName, String hashZipName,
-								String path, String originalPath) {
+								String path, String originalPath, String aesKey) {
 
 		ExcelEntity entity = new ExcelEntity();
 		entity.setOriginalParen(parent);
@@ -130,6 +175,7 @@ public class Main {
 		entity.setName(hashZipName);
 		entity.setPath(path);
 		entity.setOriginalPath(originalPath);
+		entity.setAesKey(aesKey);
 		dataList.add(entity);
 	}
 
@@ -165,6 +211,12 @@ class ExcelEntity {
 	private String name;
 	@ExcelProperty("原文件名")
 	private String originalName;
+
+	@ExcelProperty("AESkey")
+	private String aesKey;
+
+	@ExcelProperty("密码")
+	private String zipPassword;
 
 	public String getOriginalParen() {
 		return originalParen;
@@ -208,5 +260,26 @@ class ExcelEntity {
 
 	public void setPath(String path) {
 		this.path = path;
+	}
+
+	public String getPath() {
+		return path;
+	}
+
+	public String getAesKey() {
+		return aesKey;
+	}
+
+	public void setAesKey(String aesKey) {
+		this.aesKey = aesKey;
+
+	}
+
+	public String getZipPassword() {
+		return zipPassword;
+	}
+
+	public void setZipPassword(String zipPassword) {
+		this.zipPassword = zipPassword;
 	}
 }
