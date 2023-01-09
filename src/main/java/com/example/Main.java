@@ -117,7 +117,7 @@ public class Main {
                     } else if (computed(fileSize) < sizes[vipType] && files.indexOf(file) == files.size() - 1) {
                         doZipList.add(file);
                         //压缩
-                        zip(parent, path, doZipList);
+                        zip(parent, doZipList);
                         fileSize = 0L;
                     } else {
                         if (files.indexOf(file) != files.size() - 1) {
@@ -129,7 +129,7 @@ public class Main {
                             files = null;
                             files = new ArrayList<>();
                             files.add(file);
-                            zip(parent, path, doZipList);
+                            zip(parent, doZipList);
                             fileSize = 0L;
                         }
                     }
@@ -156,7 +156,7 @@ public class Main {
      * @param files
      * @return
      */
-    public Map<String, Object> zip(String parent, String path, List<File> files) {
+    public Map<String, Object> zip(String parent,  List<File> files) {
         //1.压缩工具类build
 		ZipParameters zipParameters = new ZipParameters();
 		zipParameters.setEncryptFiles(true);
@@ -182,7 +182,7 @@ public class Main {
             throw new RuntimeException(e);
         }
 
-        String hashPath = aes.encryptHex(path);
+
 	/*	try {
             zipFile.setRunInThread(true);
 			zipFile.addFiles(files, zipParameters);
@@ -197,7 +197,7 @@ public class Main {
 			}
 			System.gc();
 		}*/
-        excelService.writeXsl(parent, hashParent, "", hashParent, hashPath, path, Arrays.toString(key),password);
+        excelService.writeXsl(parent, hashParent, "", hashParent, Arrays.toString(key),password);
 		return null;
 	}
 

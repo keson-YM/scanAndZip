@@ -33,7 +33,7 @@ public class XslServiceImpl implements XslService {
 	@Override
 	public  void writeXsl(String parent, String hashParent,
 						  String originalZipName, String hashZipName,
-						  String path, String originalPath, String aesKey,
+						   String aesKey,
 						  String zipPassword) {
 
 		ExcelEntity entity = new ExcelEntity();
@@ -41,8 +41,6 @@ public class XslServiceImpl implements XslService {
 		entity.setParent(hashParent);
 		entity.setOriginalName(originalZipName);
 		entity.setName(hashZipName);
-		entity.setPath(path);
-		entity.setOriginalPath(originalPath);
 		entity.setAesKey(aesKey);
 		entity.setZipPassword(zipPassword);
 		dataList.add(entity);
