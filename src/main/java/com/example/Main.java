@@ -50,17 +50,31 @@ public class Main {
 			head.add(list);
 		}
 		File dir = new File(path);
+		List<File> dirs = Arrays.asList(dir.listFiles());
+
 		if (dir.exists()) {
-			scan(dir.listFiles());
+			scan(dirs);
 		}
 		zip();
 		doWrite();
 	}
 
-	public static void scan(File[] dir) {
+	public static void scan(List<File> dir) {
+		Collections.sort(dir, new Comparator<File>() {
+			@Override
+			public int compare(File o1, File o2) {
+				if (o1.isDirectory() && o2.isFile()) {
+					return 1;
+				}
+				if (o1.isFile() && o2.isDirectory()) {
+					return -1;
+				}
+				return 0;
+			}
+		});
 		for (File file : dir) {
 			if (file.isDirectory()) {
-				scan(file.listFiles());
+				scan(Arrays.asList(file.listFiles()));
 			} else {
 				String parent = file.getParent();
 				List<File> fileList = null;
@@ -81,8 +95,9 @@ public class Main {
 		Long fileSize = 0L;
 
 		List<File> doZipList = null;
-		Set<Map.Entry<String, List<File>>> keySet = fileMap.entrySet();
-		for (Map.Entry<String, List<File>> item : keySet) {
+		Iterator<Map.Entry<String, List<File>>> keySet = fileMap.entrySet().iterator();
+		while (keySet.hasNext()) {
+			Map.Entry<String, List<File>> item = keySet.next();
 			String parent = item.getKey();
 			List<File> files = item.getValue();
 			doZipList = new ArrayList<>();
@@ -117,7 +132,7 @@ public class Main {
 	 * @param files
 	 * @return
 	 */
-	public static Map<String, Object> zip(String parent, List<File> files)  {
+	public static Map<String, Object> zip(String parent, List<File> files) {
 		//1.压缩工具类build
 		ZipParameters zipParameters = new ZipParameters();
 		zipParameters.setEncryptFiles(true);
@@ -145,7 +160,7 @@ public class Main {
 			}
 		} catch (ZipException e) {
 			throw new RuntimeException(e);
-		}finally {
+		} finally {
 			try {
 				zipFile.close();
 			} catch (IOException e) {
