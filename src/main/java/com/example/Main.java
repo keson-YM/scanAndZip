@@ -1,6 +1,11 @@
 package com.example;
 
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.annotation.ExcelProperty;
+import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
+
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class Main {
@@ -14,15 +19,31 @@ public class Main {
 
 	private static Integer vipType = 0; //必填  0：单个文件最大4G   1： 单个文件最大10G  2：单个文件最大20G
 
-	private static Double[] sizes = {4096D,10240D,20480D};
+	private static Double[] sizes = {4096D, 10240D, 20480D};
 
 	private static String password = ""; //必填 压缩包密码
 
+	private static String excelPath = "";
+
+	private static String excelName = "";
+
+	private static List<List<String>> head = new ArrayList<>();
+	private static String[] heads = {"原父目录", "父目录", "原完整路径", "路径", "文件名", "原文件名"};
+
+	private static List<ExcelEntity> dataList = new ArrayList<>();
+
 	public static void main(String[] args) {
+		for (String item : heads) {
+			List<String> list = new ArrayList<>();
+			list.add(item);
+			head.add(list);
+		}
 		File dir = new File(path);
 		if (dir.exists()) {
 			scan(dir.listFiles());
 		}
+		zip();
+		doWrite();
 	}
 
 	public static void scan(File[] dir) {
@@ -50,18 +71,18 @@ public class Main {
 
 		List<File> doZipList = null;
 		Set<Map.Entry<String, List<File>>> keySet = fileMap.entrySet();
-		for (Map.Entry<String,List<File>> item : keySet){
+		for (Map.Entry<String, List<File>> item : keySet) {
 			String parent = item.getKey();
 			List<File> files = item.getValue();
 			doZipList = new ArrayList<>();
-			for (File file: files) {
+			for (File file : files) {
 				//计算大小
 				fileSize += file.length();
 				if (computed(fileSize) < sizes[vipType]) {
 					doZipList.add(file);
-				}else {
+				} else {
 					//压缩
-					zip(parent,doZipList);
+					zip(parent, doZipList);
 					fileSize = 0L;
 				}
 			}
@@ -80,23 +101,112 @@ public class Main {
 
 	/**
 	 * 压缩并加密
+	 *
 	 * @param parent
-
 	 * @param files
 	 * @return
 	 */
-	public static Map<String,Object> zip (String parent,List<File> files){
+	public static Map<String, Object> zip(String parent, List<File> files) {
+
 		return null;
 	}
 
 	/**
 	 * 记录Excel
+	 *
 	 * @param parent
 	 * @param hashParent
 	 * @param originZipName
 	 * @param hashZipName
 	 */
-	public static void writeXsl(String parent,String hashParent,String originZipName,String hashZipName){
+	public static void writeXsl(String parent, String hashParent,
+								String originalZipName, String hashZipName,
+								String path, String originalPath) {
 
+		ExcelEntity entity = new ExcelEntity();
+		entity.setOriginalParen(parent);
+		entity.setParent(hashParent);
+		entity.setOriginalName(originalZipName);
+		entity.setName(hashZipName);
+		entity.setPath(path);
+		entity.setOriginalPath(originalPath);
+		dataList.add(entity);
+	}
+
+
+	/**
+	 * 写入excel文件
+	 */
+	public static void doWrite() {
+		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+		if (!excelPath.endsWith("/")) {
+			excelPath = excelPath.replace("\\", "/");
+			excelPath += "/";
+		}
+		if (!excelName.contains("xlsx") || !excelName.contains("excel")) excelName = excelName += ".xlsx";
+		String name = excelPath + format.format(new Date()) + excelName;
+		EasyExcel.write(name).head(head)
+				.registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+				.sheet().doWrite(dataList);
+	}
+}
+
+class ExcelEntity {
+	@ExcelProperty("原父目录")
+	private String originalParen;
+	@ExcelProperty("父目录")
+	private String parent;
+	@ExcelProperty("原完整路径")
+	private String originalPath;
+	@ExcelProperty("路径")
+	private String path;
+
+	@ExcelProperty("文件名")
+	private String name;
+	@ExcelProperty("原文件名")
+	private String originalName;
+
+	public String getOriginalParen() {
+		return originalParen;
+	}
+
+	public void setOriginalParen(String originalParen) {
+		this.originalParen = originalParen;
+	}
+
+	public String getParent() {
+		return parent;
+	}
+
+	public void setParent(String parent) {
+		this.parent = parent;
+	}
+
+	public String getOriginalPath() {
+		return originalPath;
+	}
+
+	public void setOriginalPath(String originalPath) {
+		this.originalPath = originalPath;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getOriginalName() {
+		return originalName;
+	}
+
+	public void setOriginalName(String originalName) {
+		this.originalName = originalName;
+	}
+
+	public void setPath(String path) {
+		this.path = path;
 	}
 }
