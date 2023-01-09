@@ -8,6 +8,8 @@ import com.alibaba.excel.annotation.ExcelProperty;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import com.example.ExcelService.XslService;
 import com.example.ExcelService.XslServiceImpl;
+import com.example.StreamToZip.StreamZipService;
+import com.example.StreamToZip.StreamZipServiceImpl;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 import net.lingala.zip4j.model.ZipParameters;
@@ -39,9 +41,9 @@ public class Main {
     public static String excelName = "测试";
 
     private XslService excelService = new XslServiceImpl();
+    private StreamZipService zipService = new StreamZipServiceImpl();
 
-
-
+    private static Long beginTime = System.currentTimeMillis();
 	public static void main(String[] args) {
 
         File dir = new File(path);
@@ -53,6 +55,8 @@ public class Main {
         main.zip();
         main.excelService.doWrite();
         main.excelService.errorExcel();
+        Long endTime = System.currentTimeMillis();
+        System.out.println(((endTime - beginTime) / 1000));
     }
 
     public void scan(List<File> dir) {
@@ -120,6 +124,7 @@ public class Main {
                             Integer begin = files.indexOf(file) + 1;
                             Integer end = files.size() - 1;
                             files = files.subList(begin, end);
+                            fileSize = 0L;
                         } else {
                             files = null;
                             files = new ArrayList<>();
@@ -170,20 +175,29 @@ public class Main {
 		String zipName = zipPath + "/" + hashParent + ".zip";
 		ZipFile zipFile = new ZipFile(zipName, password.toCharArray());
 
-		String hashPath = aes.encryptHex(path);
-		try {
+        try {
+            zipService.zipOutputStreamExample(new File(zipName),files,zipParameters,password);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        String hashPath = aes.encryptHex(path);
+	/*	try {
+            zipFile.setRunInThread(true);
 			zipFile.addFiles(files, zipParameters);
 		} catch (ZipException e) {
 			throw new RuntimeException(e);
 		} finally {
-			excelService.writeXsl(parent, hashParent, "", hashParent, hashPath, path, Arrays.toString(key),password);
+
 			try {
 				zipFile.close();
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
 			System.gc();
-		}
+		}*/
+        excelService.writeXsl(parent, hashParent, "", hashParent, hashPath, path, Arrays.toString(key),password);
 		return null;
 	}
 

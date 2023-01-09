@@ -35,6 +35,7 @@ public class StreamZipServiceImpl implements StreamZipService {
                     }
                 }
                 zos.closeEntry();
+                System.gc();
             }
         }
     }
