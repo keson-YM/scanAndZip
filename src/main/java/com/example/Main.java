@@ -27,9 +27,9 @@ import java.util.*;
 public class Main {
 
     //E:\JavaWorkSpace\测试data
-    private static String path = "E:\\JavaWorkSpace\\测试data";
+    private static String path = "";
 
-    private static String zipPath = "E:\\JavaWorkSpace";
+    private static String zipPath = "";
 
     public static Map<String, List<File>> fileMap = new HashMap<>();
 
@@ -39,7 +39,7 @@ public class Main {
 
     private static String password = "123223"; //必填 压缩包密码
 
-    public static String excelPath = "E:\\JavaWorkSpace";
+    public static String excelPath = "";
 
     public static String excelName = "测试";
 
