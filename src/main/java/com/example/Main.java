@@ -15,8 +15,11 @@ import net.lingala.zip4j.exception.ZipException;
 import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.AesKeyStrength;
 import net.lingala.zip4j.model.enums.EncryptionMethod;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -24,9 +27,9 @@ import java.util.*;
 public class Main {
 
     //E:\JavaWorkSpace\测试data
-    private static String path = "D:/测试data";
+    private static String path = "E:\\JavaWorkSpace\\测试data";
 
-    private static String zipPath = "D:/测试压缩";
+    private static String zipPath = "E:\\JavaWorkSpace";
 
     public static Map<String, List<File>> fileMap = new HashMap<>();
 
@@ -36,16 +39,16 @@ public class Main {
 
     private static String password = "123223"; //必填 压缩包密码
 
-    public static String excelPath = "D:/测试压缩";
+    public static String excelPath = "E:\\JavaWorkSpace";
 
     public static String excelName = "测试";
 
     private XslService excelService = new XslServiceImpl();
     private StreamZipService zipService = new StreamZipServiceImpl();
 
-    private static Long beginTime = System.currentTimeMillis();
-	public static void main(String[] args) {
 
+	public static void main(String[] args) {
+        Long beginTime = System.currentTimeMillis();
         File dir = new File(path);
         List<File> dirs = Arrays.asList(dir.listFiles());
         Main main = new Main();
@@ -56,7 +59,7 @@ public class Main {
         main.excelService.doWrite();
         main.excelService.errorExcel();
         Long endTime = System.currentTimeMillis();
-        System.out.println(((endTime - beginTime) / 1000));
+        System.out.println((Double.valueOf(endTime) - Double.valueOf(beginTime)) / 1000D);
     }
 
     public void scan(List<File> dir) {
@@ -162,6 +165,7 @@ public class Main {
 		zipParameters.setEncryptFiles(true);
 		zipParameters.setEncryptionMethod(EncryptionMethod.AES);
 		zipParameters.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
+
 		if (!zipPath.endsWith("/")) {
 			zipPath = zipPath.replace("\\", "/");
 			zipPath += "/";
@@ -174,29 +178,32 @@ public class Main {
 		String hashParent = aes.encryptHex(parent);
 		String zipName = zipPath + "/" + hashParent + ".zip";
 		ZipFile zipFile = new ZipFile(zipName, password.toCharArray());
+        zipFile.setRunInThread(true);
+        FileInputStream stream = null;
+        for (File file : files){
+            try {
+                zipParameters.setFileNameInZip(file.getName());
+                stream = FileUtils.openInputStream(file);
+                zipFile.addStream(stream,zipParameters);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }finally {
+                try {
+                    zipFile.close();
+                    stream.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                System.gc();
 
-        try {
+            }
+        }
+        /*try {
             zipService.zipOutputStreamExample(new File(zipName),files,zipParameters,password);
 
         } catch (IOException e) {
             throw new RuntimeException(e);
-        }
-
-
-	/*	try {
-            zipFile.setRunInThread(true);
-			zipFile.addFiles(files, zipParameters);
-		} catch (ZipException e) {
-			throw new RuntimeException(e);
-		} finally {
-
-			try {
-				zipFile.close();
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-			System.gc();
-		}*/
+        }*/
         excelService.writeXsl(parent, hashParent, "", hashParent, Arrays.toString(key),password);
 		return null;
 	}
