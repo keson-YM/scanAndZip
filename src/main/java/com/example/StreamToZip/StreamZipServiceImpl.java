@@ -16,7 +16,7 @@ public class StreamZipServiceImpl implements StreamZipService {
             throws IOException {
 
 
-        byte[] buff = new byte[4096];
+        byte[] buff = new byte[8192];
         int readLen;
 
         try (ZipOutputStream zos = initializeZipOutputStream(outputZipFile, password)) {

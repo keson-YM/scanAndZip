@@ -1,5 +1,9 @@
 package com.example.ExcelService;
 
+import com.example.ExcelService.Entity.ErrorExcelEntity;
+
+import java.util.List;
+
 public interface XslService {
 	void writeXsl(String parent, String hashParent,
 				  String originalZipName, String hashZipName,
@@ -11,4 +15,8 @@ public interface XslService {
 	void doWrite();
 
 	void errorExcel();
+
+    List<ErrorExcelEntity> readErrorExcel(String path);
+
+	void writeFinalError(String path, List<ErrorExcelEntity> entities);
 }

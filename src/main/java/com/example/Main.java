@@ -3,6 +3,7 @@ package com.example;
 import cn.hutool.crypto.SecureUtil;
 import cn.hutool.crypto.symmetric.SymmetricAlgorithm;
 import cn.hutool.crypto.symmetric.SymmetricCrypto;
+import com.example.ExcelService.Entity.ErrorExcelEntity;
 import com.example.ExcelService.XslService;
 import com.example.ExcelService.XslServiceImpl;
 import com.example.StreamToZip.StreamZipService;
@@ -12,6 +13,7 @@ import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.AesKeyStrength;
 import net.lingala.zip4j.model.enums.EncryptionMethod;
 import org.apache.commons.io.FileUtils;
+import org.apache.poi.ss.formula.functions.T;
 
 
 import java.io.File;
@@ -23,23 +25,31 @@ import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Main {
 
     //E:\JavaWorkSpace\测试data
-    private static String path = "D:\\测试data\\data";
+    private static String path = "D:\\WorkSpace\\test\\data";
 
-    private static String zipPath = "D:\\测试data";
+    private static String zipPath = "D:\\WorkSpace\\test";
 
     public static Map<String, List<File>> fileMap = new HashMap<>();
 
+    public static Map<String, List<File>> bigFileMap = new HashMap<>();
+
     private static Integer vipType = 0; //必填  0：单个文件最大4G   1： 单个文件最大10G  2：单个文件最大20G
 
-    private static final List<BigDecimal> sizes = Arrays.asList(new BigDecimal("4096"), new BigDecimal("10240"), new BigDecimal("20480"));
+    private static final List<BigDecimal> sizes = Arrays.asList(
+            new BigDecimal("4096"),
+            new BigDecimal("10240"),
+            new BigDecimal("20480"));
 
     private static String password = "123223"; //必填 压缩包密码`
 
-    public static String excelPath = "D:\\测试data";
+    public static String excelPath = "D:\\WorkSpace\\test";
 
     public static String excelName = "测试";
 
@@ -56,9 +66,12 @@ public class Main {
         if (dir.exists()) {
             main.scan(dirs);
         }
-        main.zip();
+        main.zip(fileMap);
         main.excelService.doWrite();
         main.excelService.errorExcel();
+        //主要压缩流程走完以后走ErrorExcel流程
+     /*   List<ErrorExcelEntity> entities = main.excelService.readErrorExcel(excelPath);
+        main.zip(entities);*/
         Long endTime = System.currentTimeMillis();
         System.out.println((Double.valueOf(endTime) - Double.valueOf(beginTime)) / 1000D);
 
@@ -97,12 +110,11 @@ public class Main {
     }
 
 
-    public void zip() {
-        Long fileSize = 0L;
-
+    public void zip(Map<String, List<File>> didMap) {
         List<File> doZipList = null;
-        Iterator<Map.Entry<String, List<File>>> keySet = fileMap.entrySet().iterator();
+        Iterator<Map.Entry<String, List<File>>> keySet = didMap.entrySet().iterator();
         while (keySet.hasNext()) {
+            Long fileSize = 0L;
             Map.Entry<String, List<File>> item = keySet.next();
             String parent = item.getKey();
             List<File> files = item.getValue();
@@ -110,52 +122,55 @@ public class Main {
             String path = null;
             Integer size = files.size();
             for (int i = 0; i < size; i++) {
+
                 if (path == null) path = files.get(i).getPath();
                 BigDecimal oneFileSize = computed(files.get(i).length());
+
                 String hashParent = parentCrypto(parent);
+                Integer length = hashParent.length();
+                hashParent = hashParent.substring(0, (length - 1) / 4);
+
                 if (oneFileSize.compareTo(sizes.get(vipType)) == 1) {
                     //写失败Excel
                     excelService.writeErrorXsl(path, "文件太大", oneFileSize.doubleValue());
+                    files.remove(i);
+                    size -= 1;
+                    i--;
+
                 } else {
                     //计算大小
                     fileSize += files.get(i).length();
+                    //如果当 （前压缩文件大小 + files[i]个文件大小 ) < 百度网盘限制大小 就添加files[i]个文件进入队列
                     if (computed(fileSize).compareTo(sizes.get(vipType)) == -1) {
                         doZipList.add(files.get(i));
-                    }else{
-                        excelService.writeErrorXsl(path,"加上这个文件就太大了", oneFileSize.doubleValue());
-                        zip(hashParent, doZipList);
+                    } else {
+                        List<File> finalDoZipList = doZipList;
+                        nioZip(genTheZipFile(hashParent), finalDoZipList);
                         excelService.writeXsl(parent, hashParent, "", hashParent, Arrays.toString(key), password);
-                        doZipList = new ArrayList<>();
+                        files = files.subList(i - 1, files.size() - 1);
+                        doZipList.clear();
+                        size = files.size();
                         fileSize = 0L;
+                        i = -1;
+                        /*files.remove(i);
+                        size--;
+                        */
                     }
                     if (i == files.size() - 1) {
                         //压缩
-                        zip(hashParent, doZipList);
-                        doZipList = new ArrayList<>();
+                        doZipList.add(files.get(i));
+                        File zipFile = genTheZipFile(hashParent);
+                        nioZip(zipFile, doZipList);
+                        // zip(hashParent, doZipList);
+                        excelService.writeXsl(parent, zipFile.getName(), "", hashParent, Arrays.toString(key), password);
+                        doZipList.clear();
                         fileSize = 0L;
-
-                    } /*else {
-                        if (files.indexOf(files.get(i)) != files.size() - 1) {
-                            Integer begin = i + 1;
-                            Integer end = files.size() - 1;
-                            files = files.subList(begin, end);
-                            fileSize = 0L;
-                            size -= fileMap.size();
-
-                            i = 0;
-                        } else {
-                            files = null;
-                            files = new ArrayList<>();
-                            files.add(files.get(i));
-                            zip(parent, doZipList);
-                            fileSize = 0L;
-                        }
-                    }*/
+                    }
                 }
-
             }
         }
     }
+
 
     /**
      * 计算大小
@@ -165,7 +180,7 @@ public class Main {
      */
     public static BigDecimal computed(Long fileSize) {
         Double value = (double) fileSize / (1024 * 1024);
-        return new BigDecimal(value).setScale(2, RoundingMode.HALF_UP);
+        return new BigDecimal(value);
     }
 
     /**
@@ -176,42 +191,78 @@ public class Main {
      * @return
      */
     public Map<String, Object> zip(String hashParent, List<File> files) {
-        //1.压缩工具类build
-        ZipParameters zipParameters = new ZipParameters();
-        zipParameters.setEncryptFiles(true);
-        zipParameters.setEncryptionMethod(EncryptionMethod.AES);
-        zipParameters.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
 
-        if (!zipPath.endsWith("/")) {
-            zipPath = zipPath.replace("\\", "/");
-            zipPath += "/";
-        }
+        if (files != null && files.size() > 0) {
 
-        //1.加密parent
-        String zipName = zipPath + "/" + hashParent + ".zip";
-        ZipFile zipFile = new ZipFile(zipName, password.toCharArray());
+            //1.压缩工具类build
+            ZipParameters zipParameters = new ZipParameters();
+            zipParameters.setEncryptFiles(true);
+            zipParameters.setEncryptionMethod(EncryptionMethod.AES);
+            zipParameters.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
 
-        try {
-            zipFile.addFiles(files, zipParameters);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } finally {
+            if (!zipPath.endsWith("/")) {
+                zipPath = zipPath.replace("\\", "/");
+                zipPath += "/";
+            }
+
+            //1.加密parent
+            String zipName = zipPath + "/" + hashParent + ".zip";
+            ZipFile zipFile = new ZipFile(zipName, password.toCharArray());
             try {
-                zipFile.close();
-
-                System.gc();
+                zipFile.addFiles(files, zipParameters);
             } catch (IOException e) {
                 throw new RuntimeException(e);
+            } finally {
+                try {
+                    zipFile.close();
+                    System.gc();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
-
         return null;
     }
 
-    private static String parentCrypto(String parent){
-        SymmetricCrypto aes = new SymmetricCrypto(SymmetricAlgorithm.AES, key);
-        return aes.encryptHex(parent);
+    private void nioZip(File zipFile, List<File> files) {
+        if (files != null && files.size() > 0) {
+
+            //1.压缩工具类build
+            ZipParameters zipParameters = new ZipParameters();
+            zipParameters.setEncryptFiles(true);
+            zipParameters.setEncryptionMethod(EncryptionMethod.AES);
+            zipParameters.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
+
+            if (!zipPath.endsWith("/")) {
+                zipPath = zipPath.replace("\\", "/");
+                zipPath += "/";
+            }
+
+            //1.加密parent
+
+            try {
+                zipService.zipOutputStreamExample(zipFile, files, zipParameters, password);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
-}
+    private static AtomicInteger integer = null;
 
+    private static File genTheZipFile(String hashParent) {
+        String zipName = zipPath + "/" + hashParent + ".zip";
+        File zipFile = new File(zipName);
+        if (zipFile.exists()) {
+            if (integer == null) integer = new AtomicInteger(1);
+            zipName = zipName.replace(hashParent, hashParent += "(" + integer.get() + ")");
+        }
+        zipFile = new File(zipName);
+        return zipFile;
+    }
+
+    private static String parentCrypto(String parent) {
+        SymmetricCrypto aes = new SymmetricCrypto(SymmetricAlgorithm.RC2, key);
+        return aes.encryptHex(parent);
+    }
+}
