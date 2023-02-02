@@ -11,6 +11,7 @@ import com.example.StreamToZip.StreamZipServiceImpl;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.AesKeyStrength;
+import net.lingala.zip4j.model.enums.CompressionMethod;
 import net.lingala.zip4j.model.enums.EncryptionMethod;
 import org.apache.commons.io.FileUtils;
 import org.apache.poi.ss.formula.functions.T;
@@ -32,9 +33,9 @@ import java.util.concurrent.locks.ReentrantLock;
 public class Main {
 
     //E:\JavaWorkSpace\测试data
-    private static String path = "D:\\WorkSpace\\test\\data";
+    private static String path = "E:\\JavaWorkSpace\\测试data";
 
-    private static String zipPath = "D:\\WorkSpace\\test";
+    private static String zipPath = "E:\\JavaWorkSpace\\";
 
     public static Map<String, List<File>> fileMap = new HashMap<>();
 
@@ -49,7 +50,7 @@ public class Main {
 
     private static String password = "123223"; //必填 压缩包密码`
 
-    public static String excelPath = "D:\\WorkSpace\\test";
+    public static String excelPath = "E:\\JavaWorkSpace\\test";
 
     public static String excelName = "测试";
 
@@ -147,18 +148,17 @@ public class Main {
                         List<File> finalDoZipList = doZipList;
                         nioZip(genTheZipFile(hashParent), finalDoZipList);
                         excelService.writeXsl(parent, hashParent, "", hashParent, Arrays.toString(key), password);
-                        files = files.subList(i - 1, files.size() - 1);
+                        files = files.subList(i, files.size() - 1);
                         doZipList.clear();
                         size = files.size();
                         fileSize = 0L;
-                        i = -1;
+                        i = 0;
                         /*files.remove(i);
                         size--;
                         */
                     }
                     if (i == files.size() - 1) {
                         //压缩
-                        doZipList.add(files.get(i));
                         File zipFile = genTheZipFile(hashParent);
                         nioZip(zipFile, doZipList);
                         // zip(hashParent, doZipList);
@@ -232,7 +232,7 @@ public class Main {
             zipParameters.setEncryptFiles(true);
             zipParameters.setEncryptionMethod(EncryptionMethod.AES);
             zipParameters.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
-
+//            zipParameters.setCompressionMethod(CompressionMethod.STORE);
             if (!zipPath.endsWith("/")) {
                 zipPath = zipPath.replace("\\", "/");
                 zipPath += "/";
