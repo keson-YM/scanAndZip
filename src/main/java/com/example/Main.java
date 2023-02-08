@@ -32,238 +32,250 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class Main {
 
-	//E:\JavaWorkSpace\测试data
-	private static String path = "E:\\JavaWorkSpace\\测试data";
+    //E:\JavaWorkSpace\测试data
+    private static String path = "E:\\测试\\data";
 
-	private static String zipPath = "E:\\JavaWorkSpace\\";
+    private static String zipPath = "E:\\测试\\";
 
-	public static Map<String, List<File>> fileMap = new HashMap<>();
+    public static Map<String, List<File>> fileMap = new HashMap<>();
 
-	public static Map<String, List<File>> bigFileMap = new HashMap<>();
+    public static Map<String, List<File>> bigFileMap = new HashMap<>();
 
-	private static Integer vipType = 0; //必填  0：单个文件最大4G   1： 单个文件最大10G  2：单个文件最大20G
+    private static Integer vipType = 0; //必填  0：单个文件最大4G   1： 单个文件最大10G  2：单个文件最大20G
 
-	private static final List<BigDecimal> sizes = Arrays.asList(
-			new BigDecimal("4096"),
-			new BigDecimal("10240"),
-			new BigDecimal("20480"));
+    private static final List<BigDecimal> sizes = Arrays.asList(
+            new BigDecimal("4096"),
+            new BigDecimal("10240"),
+            new BigDecimal("20480"));
 
-	private static String password = "123223"; //必填 压缩包密码`
+    private static String password = "123223"; //必填 压缩包密码`
 
-	public static String excelPath = "E:\\JavaWorkSpace\\test";
+    public static String excelPath = "E:\\测试\\";
 
-	public static String excelName = "测试";
+    public static String excelName = "测试";
 
-	private XslService excelService = new XslServiceImpl();
-	private StreamZipService zipService = new StreamZipServiceImpl();
-	//随机生成密钥
-	static final byte[] key = SecureUtil.generateKey(SymmetricAlgorithm.AES.getValue()).getEncoded();
+    private XslService excelService = new XslServiceImpl();
+    private StreamZipService zipService = new StreamZipServiceImpl();
+    //随机生成密钥
+    static final byte[] key = SecureUtil.generateKey(SymmetricAlgorithm.AES.getValue()).getEncoded();
 
-	public static void main(String[] args) {
-		Long beginTime = System.currentTimeMillis();
-		File dir = new File(path);
-		List<File> dirs = Arrays.asList(dir.listFiles());
-		Main main = new Main();
-		if (dir.exists()) {
-			main.scan(dirs);
-		}
-		main.zip(fileMap);
-		main.excelService.doWrite();
-		main.excelService.errorExcel();
-		//主要压缩流程走完以后走ErrorExcel流程
+    public static void main(String[] args) {
+        Long beginTime = System.currentTimeMillis();
+        File dir = new File(path);
+        List<File> dirs = Arrays.asList(dir.listFiles());
+        Main main = new Main();
+        if (dir.exists()) {
+            main.scan(dirs);
+        }
+        main.zip(fileMap);
+        main.excelService.doWrite();
+        main.excelService.errorExcel();
+        //主要压缩流程走完以后走ErrorExcel流程
      /*   List<ErrorExcelEntity> entities = main.excelService.readErrorExcel(excelPath);
         main.zip(entities);*/
-		Long endTime = System.currentTimeMillis();
-		System.out.println((Double.valueOf(endTime) - Double.valueOf(beginTime)) / 1000D);
+        Long endTime = System.currentTimeMillis();
+        System.out.println((Double.valueOf(endTime) - Double.valueOf(beginTime)) / 1000D);
 
-	}
+    }
 
-	public void scan(List<File> dir) {
-		Collections.sort(dir, new Comparator<File>() {
-			@Override
-			public int compare(File o1, File o2) {
-				if (o1.isDirectory() && o2.isFile()) {
-					return 1;
-				}
-				if (o1.isFile() && o2.isDirectory()) {
-					return -1;
-				}
-				return 0;
-			}
-		});
-		for (File file : dir) {
-			if (file.isDirectory()) {
-				scan(Arrays.asList(file.listFiles()));
-			} else {
-				System.out.println(file);
-				String parent = file.getParent();
-				List<File> fileList = null;
-				if (fileMap.get(parent) != null) {
-					fileList = fileMap.get(parent);
-					fileList.add(file);
-				} else {
-					fileList = new LinkedList<>();
-					fileList.add(file);
-					fileMap.put(parent, fileList);
-				}
-			}
-		}
-	}
+    public void scan(List<File> dir) {
+        Collections.sort(dir, new Comparator<File>() {
+            @Override
+            public int compare(File o1, File o2) {
+                if (o1.isDirectory() && o2.isFile()) {
+                    return 1;
+                }
+                if (o1.isFile() && o2.isDirectory()) {
+                    return -1;
+                }
+                return 0;
+            }
+        });
+        for (File file : dir) {
+            if (file.isDirectory()) {
+                scan(Arrays.asList(file.listFiles()));
+            } else {
+                System.out.println(file);
+                String parent = file.getParent();
+                List<File> fileList = null;
+                if (fileMap.get(parent) != null) {
+                    fileList = fileMap.get(parent);
+                    fileList.add(file);
+                } else {
+                    fileList = new LinkedList<>();
+                    fileList.add(file);
+                    fileMap.put(parent, fileList);
+                }
+            }
+        }
+    }
 
 
-	public void zip(Map<String, List<File>> didMap) {
-		List<File> doZipList = null;
-		Iterator<Map.Entry<String, List<File>>> keySet = didMap.entrySet().iterator();
-		while (keySet.hasNext()) {
-			Long fileSize = 0L;
-			Map.Entry<String, List<File>> item = keySet.next();
-			String parent = item.getKey();
-			List<File> files = item.getValue();
-			doZipList = new ArrayList<>();
-			String path = null;
-			Integer size = files.size();
-			for (int i = 0; i < size; i++) {
+    public void zip(Map<String, List<File>> didMap) {
+        List<File> doZipList = null;
+        Iterator<Map.Entry<String, List<File>>> keySet = didMap.entrySet().iterator();
+        while (keySet.hasNext()) {
+            Long fileSize = 0L;
+            Map.Entry<String, List<File>> item = keySet.next();
+            String parent = item.getKey();
+            List<File> files = item.getValue();
+            doZipList = new ArrayList<>();
+            String path = null;
+            Integer size = files.size();
+            for (int i = 0; i < size; i++) {
 
-				if (path == null) path = files.get(i).getPath();
-				BigDecimal oneFileSize = computed(files.get(i).length());
+                if (path == null) path = files.get(i).getPath();
+                BigDecimal oneFileSize = computed(files.get(i).length());
 
-				String hashParent = parentCrypto(parent);
-				Integer length = hashParent.length();
-				hashParent = hashParent.substring(0, (length - 1) / 4);
+                String hashParent = parentCrypto(parent);
+                Integer length = hashParent.length();
+                hashParent = hashParent.substring(0, (length - 1) / 4);
 
-				if (oneFileSize.compareTo(sizes.get(vipType)) > 0) {
-					//写失败Excel
-					excelService.writeErrorXsl(path, "文件太大", oneFileSize.doubleValue());
-					files.remove(i);
-					size -= 1;
-					i--;
+                if (oneFileSize.compareTo(sizes.get(vipType)) > 0) {
+                    //写失败Excel
+                    excelService.writeErrorXsl(path, "文件太大", oneFileSize.doubleValue());
+                    files.remove(i);
+                    size -= 1;
+                    i--;
 
-				} else {
-					//计算大小
-					fileSize += files.get(i).length();
-					//如果当 （前压缩文件大小 + files[i]个文件大小 ) < 百度网盘限制大小 就添加files[i]个文件进入队列
-					if (computed(fileSize).compareTo(sizes.get(vipType)) < 0) {
-						doZipList.add(files.get(i));
-					} else {
-						List<File> finalDoZipList = doZipList;
-						nioZip(genTheZipFile(hashParent), finalDoZipList);
-						excelService.writeXsl(parent, hashParent, "", hashParent, Arrays.toString(key), password);
-						files = files.subList(i, files.size() - 1);
-						doZipList.clear();
-						size = files.size();
-						fileSize = 0L;
-						i = 0;
+                } else {
+                    //计算大小
+                    fileSize += files.get(i).length();
+                    //如果当 （前压缩文件大小 + files[i]个文件大小 ) < 百度网盘限制大小 就添加files[i]个文件进入队列
+                    if (computed(fileSize).compareTo(sizes.get(vipType)) < 0) {
+                        doZipList.add(files.get(i));
+                    } else {
+                        List<File> finalDoZipList = doZipList;
+                        File zipFile = genTheZipFile(hashParent);
+                       nioZip(zipFile, finalDoZipList);
+                        excelService.writeXsl(parent, zipFile.getName(), "", zipFile.getName(), Arrays.toString(key), password);
+                        files = files.subList(i-1, files.size());
+                        doZipList.clear();
+                        size = files.size();
+                        fileSize = 0L;
+                        i = 0;
                         /*files.remove(i);
                         size--;
                         */
-					}
-					if (i == files.size() - 1) {
-						//压缩
-						doZipList.add(files.get(i));
-						File zipFile = genTheZipFile(hashParent);
-						nioZip(zipFile, doZipList);
-						// zip(hashParent, doZipList);
-						excelService.writeXsl(parent, zipFile.getName(), "", hashParent, Arrays.toString(key), password);
-						doZipList.clear();
-						fileSize = 0L;
-					}
-				}
-			}
-		}
-	}
+                    }
+                    if (i == files.size() - 1) {
+                        //压缩
+                        File zipFile = genTheZipFile(hashParent);
+                        nioZip(zipFile, doZipList);
+                        // zip(hashParent, doZipList);
+                        excelService.writeXsl(parent, zipFile.getName(), "", hashParent, Arrays.toString(key), password);
+                        doZipList.clear();
+                        fileSize = 0L;
+                    }
+                }
+            }
+        }
+    }
 
 
-	/**
-	 * 计算大小
-	 *
-	 * @param fileSize file.length();
-	 * @return 单位：MB
-	 */
-	public static BigDecimal computed(Long fileSize) {
-		Double value = (double) fileSize / (1024 * 1024);
-		return new BigDecimal(value);
-	}
+    /**
+     * 计算大小
+     *
+     * @param fileSize file.length();
+     * @return 单位：MB
+     */
+    public static BigDecimal computed(Long fileSize) {
+        Double value = (double) fileSize / (1024 * 1024);
+        return new BigDecimal(value);
+    }
 
-	/**
-	 * 压缩并加密
-	 *
-	 * @param parent
-	 * @param files
-	 * @return
-	 */
-	public Map<String, Object> zip(String hashParent, List<File> files) {
+    /**
+     * 压缩并加密
+     *
+     * @param parent
+     * @param files
+     * @return
+     */
+    public Map<String, Object> zip(String hashParent, List<File> files) {
 
-		if (files != null && files.size() > 0) {
+        if (files != null && files.size() > 0) {
 
-			//1.压缩工具类build
-			ZipParameters zipParameters = new ZipParameters();
-			zipParameters.setEncryptFiles(true);
-			zipParameters.setEncryptionMethod(EncryptionMethod.AES);
-			zipParameters.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
+            //1.压缩工具类build
+            ZipParameters zipParameters = new ZipParameters();
+            zipParameters.setEncryptFiles(true);
+            zipParameters.setEncryptionMethod(EncryptionMethod.AES);
+            zipParameters.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
 
-			if (!zipPath.endsWith("/")) {
-				zipPath = zipPath.replace("\\", "/");
-				zipPath += "/";
-			}
+            if (!zipPath.endsWith("/")) {
+                zipPath = zipPath.replace("\\", "/");
+                zipPath += "/";
+            }
 
-			//1.加密parent
-			String zipName = zipPath + "/" + hashParent + ".zip";
-			ZipFile zipFile = new ZipFile(zipName, password.toCharArray());
-			try {
-				zipFile.addFiles(files, zipParameters);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			} finally {
-				try {
-					zipFile.close();
-					System.gc();
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-			}
-		}
-		return null;
-	}
+            //1.加密parent
+            String zipName = zipPath + "/" + hashParent + ".zip";
+            ZipFile zipFile = new ZipFile(zipName, password.toCharArray());
+            try {
+                zipFile.addFiles(files, zipParameters);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } finally {
+                try {
+                    zipFile.close();
+                    System.gc();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+        return null;
+    }
 
-	private void nioZip(File zipFile, List<File> files) {
-		if (files != null && files.size() > 0) {
+    private void nioZip(File zipFile, List<File> files) {
+        if (files != null && files.size() > 0) {
 
-			//1.压缩工具类build
-			ZipParameters zipParameters = new ZipParameters();
-			zipParameters.setEncryptFiles(true);
-			zipParameters.setEncryptionMethod(EncryptionMethod.AES);
-			zipParameters.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
+            //1.压缩工具类build
+            ZipParameters zipParameters = new ZipParameters();
+            zipParameters.setEncryptFiles(true);
+            zipParameters.setEncryptionMethod(EncryptionMethod.AES);
+            zipParameters.setAesKeyStrength(AesKeyStrength.KEY_STRENGTH_256);
 //            zipParameters.setCompressionMethod(CompressionMethod.STORE);
-			if (!zipPath.endsWith("/")) {
-				zipPath = zipPath.replace("\\", "/");
-				zipPath += "/";
-			}
+            if (!zipPath.endsWith("/")) {
+                zipPath = zipPath.replace("\\", "/");
+                zipPath += "/";
+            }
 
-			//1.加密parent
+            //1.加密parent
 
-			try {
-				zipService.zipOutputStreamExample(zipFile, files, zipParameters, password);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-	}
+            try {
+                zipService.zipOutputStreamExample(zipFile, files, zipParameters, password);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
-	private static AtomicInteger integer = null;
 
-	private static File genTheZipFile(String hashParent) {
-		String zipName = zipPath + "/" + hashParent + ".zip";
-		File zipFile = new File(zipName);
-		if (zipFile.exists()) {
+    private static File genTheZipFile(String hashParent) {
+
+        String zipName = zipPath + "/" + hashParent + ".zip";
+        File zipFile = new File(zipName);
+        if (zipFile.exists()){
+            String name = null;
+            for (int i = 0 ; i< Integer.MAX_VALUE ; i++){
+                if (zipFile.exists()){
+                    hashParent= hashParent+"("+i+")";
+                    zipFile= new File(zipPath+"/"+hashParent+".zip");
+                }else{
+                    break;
+                }
+            }
+        }
+
+		/*if (zipFile.exists()) {
 			if (integer == null) integer = new AtomicInteger(1);
 			zipName = zipName.replace(hashParent, hashParent += "(" + integer.get() + ")");
-		}
-		zipFile = new File(zipName);
-		return zipFile;
-	}
+		}*/
+        return zipFile;
+    }
 
-	private static String parentCrypto(String parent) {
-		SymmetricCrypto aes = new SymmetricCrypto(SymmetricAlgorithm.RC2, key);
-		return aes.encryptHex(parent);
-	}
+
+    private static String parentCrypto(String parent) {
+        SymmetricCrypto aes = new SymmetricCrypto(SymmetricAlgorithm.RC2, key);
+        return aes.encryptHex(parent);
+    }
 }
